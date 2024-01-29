@@ -76,16 +76,15 @@ def status():
     return jsonify(inverter_data)
 
 
-def signal_handler(sig):
-    if sig == signal.SIGINT:
-        inverter.disconnect()
-        Event.set()
-        sys.exit(0)
+def signal_handler():
+    inverter.disconnect()
+    Event.set()
+    sys.exit(0)
 
 
 if __name__ == "__main__":
 
-    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal_handler, signal.SIGINT)
 
     if os.environ.get('HOST') is None:
         print("Please set the HOST environment variable")
