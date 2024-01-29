@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 import os
+import signal
 import threading
 import time
 from waitress import serve
@@ -71,8 +72,13 @@ def run_flask_thread():
 def status():
     return jsonify(inverter_data)
 
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
 
 if __name__ == "__main__":
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     if os.environ.get('HOST') is None:
         print("Please set the HOST environment variable")
