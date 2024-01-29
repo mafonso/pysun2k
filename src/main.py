@@ -15,8 +15,8 @@ app = Flask(__name__)
 inverter_data = dict()
 
 
-def update_data_thread():
-    while True:
+def update_data_thread(event: Event) -> None:
+    while not event.is_set():
         # Update the global dictionary with the current time
         inverter_data["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
         inverter.connect()
@@ -103,5 +103,5 @@ if __name__ == "__main__":
     update_thread.start()
 
     # Create and start the Flask thread
-    flask_thread = threading.Thread(target=run_flask_thread, args=(event,))
+    flask_thread = threading.Thread(target=run_flask_thread)
     flask_thread.start()
