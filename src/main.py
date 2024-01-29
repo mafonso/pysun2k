@@ -1,16 +1,19 @@
-from flask import Flask, jsonify
 import os
-import sys
 import signal
+import sys
 import threading
 import time
-from waitress import serve
+from threading import Event
+
+from flask import Flask, jsonify
 from sun2000_modbus import inverter
 from sun2000_modbus import registers
+from waitress import serve
 
 app = Flask(__name__)
 # Global dictionary to store status information
 inverter_data = dict()
+
 
 def update_data_thread():
     while True:
@@ -21,7 +24,7 @@ def update_data_thread():
             sn = inverter.read_raw_value(registers.InverterEquipmentRegister.SN)
             model = inverter.read_raw_value(registers.InverterEquipmentRegister.Model)
             number_of_strings = inverter.read_raw_value(registers.InverterEquipmentRegister.NumberOfPVStrings)
-            number_of_mppt  = inverter.read_raw_value(registers.InverterEquipmentRegister.NumberOfMPPTrackers)
+            number_of_mppt = inverter.read_raw_value(registers.InverterEquipmentRegister.NumberOfMPPTrackers)
 
             sun2000 = dict()
             sun2000['sn'] = sn
@@ -55,8 +58,6 @@ def update_data_thread():
             inverter_data['inverter']['total_input_power'] = input_power
             inverter_data['inverter']['internal_temperature'] = internal_temperature
 
-
-
         else:
             inverter_data["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
             inverter_data['status'] = "Not connected"
@@ -68,17 +69,19 @@ def update_data_thread():
 def run_flask_thread():
     serve(app, host="0.0.0.0", port=3000)
 
+
 # Route to display the contents of the global dictionary
 @app.route('/status')
 def status():
     return jsonify(inverter_data)
 
-def signal_handler(sig, frame):
-    print('You pressed Ctrl+C!')
-    #stop the threads here
-    update_thread.join()
-    flask_thread.join()
-    sys.exit(0)
+
+def signal_handler(sig):
+    if sig == signal.SIGINT:
+        inverter.disconnect()
+        Event.set()
+        sys.exit(0)
+
 
 if __name__ == "__main__":
 
@@ -95,9 +98,10 @@ if __name__ == "__main__":
     inverter = inverter.Sun2000(host=inverter_host, port=inverter_port, unit=inverter_unit)
 
     # Create and start the update status thread
-    update_thread = threading.Thread(target=update_data_thread)
+    event = Event()
+    update_thread = threading.Thread(target=update_data_thread, args=(event,))
     update_thread.start()
 
     # Create and start the Flask thread
-    flask_thread = threading.Thread(target=run_flask_thread)
+    flask_thread = threading.Thread(target=run_flask_thread, args=(event,))
     flask_thread.start()
