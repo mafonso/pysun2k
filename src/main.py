@@ -75,6 +75,9 @@ def status():
 
 def signal_handler(sig, frame):
     print('You pressed Ctrl+C!')
+    #stop the threads here
+    update_thread.join()
+    flask_thread.join()
     sys.exit(0)
 
 if __name__ == "__main__":
