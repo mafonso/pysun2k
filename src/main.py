@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 import os
+import sys
 import signal
 import threading
 import time
@@ -82,7 +83,7 @@ if __name__ == "__main__":
 
     if os.environ.get('HOST') is None:
         print("Please set the HOST environment variable")
-        exit(1)
+        sys.exit(1)
 
     inverter_host = os.environ.get('HOST', '')
     inverter_port = os.environ.get('PORT', 6607)
