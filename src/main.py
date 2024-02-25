@@ -11,7 +11,13 @@ from sun2000_modbus import inverter
 from sun2000_modbus import registers
 from waitress import serve
 
-import paho.mqtt.client as mqtt
+import influxdb_client
+from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client import Point
+
+
+
+
 
 
 app = Flask(__name__)
@@ -27,12 +33,16 @@ def update_data_thread(event: Event) -> None:
             model = inverter.read_raw_value(registers.InverterEquipmentRegister.Model)
             number_of_strings = inverter.read_raw_value(registers.InverterEquipmentRegister.NumberOfPVStrings)
             number_of_mppt = inverter.read_raw_value(registers.InverterEquipmentRegister.NumberOfMPPTrackers)
+            systemtime = inverter.read_raw_value(registers.InverterEquipmentRegister.SystemTime)
 
             sun2000 = dict()
+
             sun2000['sn'] = sn
             sun2000['model'] = model
             sun2000['number_of_strings'] = number_of_strings
             sun2000['number_of_mppt'] = number_of_mppt
+            sun2000['system_time'] = systemtime
+
 
             # PV0
             pv1_voltage = inverter.read_raw_value(registers.InverterEquipmentRegister.PV1Voltage)
@@ -93,6 +103,42 @@ def update_data_thread(event: Event) -> None:
 
                 inverter_data['meter'] = meter
 
+                write_api.write(bucket, org, [
+                    {
+                        "measurement": "inverter",
+                        "timestamp": systemtime,
+                        "tags": {
+                            "serial_number": sn,
+                            "unit": inverter_unit
+                        },
+                        "fields": {
+                            "pv0_voltage": pv0['voltage'],
+                            "pv0_current": pv0['current'],
+                            "pv1_voltage": pv1['voltage'],
+                            "pv1_current": pv1['current'],
+                            "input_power": input_power,
+                            "internal_temperature": internal_temperature
+                        }
+                    }
+                ])
+
+                write_api.write(bucket, org, [
+                    {
+                        "measurement": "meter",
+                        "tags": {
+                            "serial_number": sn,
+                            "unit": inverter_unit
+                        },
+                        "fields": {
+                            "active_power": meter['active_power'],
+                            "reactive_power": meter['reactive_power'],
+                            "power_factor": meter['power_factor'],
+                            "grid_frequency": meter['grid_frequency'],
+                            "phase_a_voltage": phase_a['voltage'],
+                            "phase_a_current": phase_a['current']
+                        }
+                    }
+                ])
 
         else:
             inverter_data["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -129,11 +175,17 @@ if __name__ == "__main__":
     inverter_port = os.environ.get('PORT', 6607)
     inverter_unit = os.environ.get('UNIT', 0)
 
+    bucket = os.environ.get('INFLUX_BUCKET', 'sun2000')
+    org = os.environ.get('INFLUX_ORG', 'hangas')
+    token = os.environ.get('INFLUX_TOKEN')
+    url = os.environ.get('INFLUX_URL', 'http://localhost:8086')
+
+    # InfluxDB client
+    client = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
+    write_api = client.write_api(write_options=SYNCHRONOUS)
 
 
     inverter = inverter.Sun2000(host=inverter_host, port=inverter_port, unit=inverter_unit)
-
-    # create an mqtt connection using paho
 
 
     # Create and start the update status thread
