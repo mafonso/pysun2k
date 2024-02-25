@@ -3,12 +3,16 @@ import signal
 import sys
 import threading
 import time
+import logging
 from threading import Event
 
 from flask import Flask, jsonify
 from sun2000_modbus import inverter
 from sun2000_modbus import registers
 from waitress import serve
+
+import paho.mqtt.client as mqtt
+
 
 app = Flask(__name__)
 # Global dictionary to store status information
@@ -30,26 +34,27 @@ def update_data_thread(event: Event) -> None:
             sun2000['number_of_strings'] = number_of_strings
             sun2000['number_of_mppt'] = number_of_mppt
 
-            # Voltage
+            # PV0
             pv1_voltage = inverter.read_raw_value(registers.InverterEquipmentRegister.PV1Voltage)
-            pv2_voltage = inverter.read_raw_value(registers.InverterEquipmentRegister.PV2Voltage)
-            voltage = dict()
-            voltage['0'] = pv1_voltage
-            voltage['1'] = pv2_voltage
+            pv1_current = inverter.read_raw_value(registers.InverterEquipmentRegister.PV1Current)
+            pv0 = dict()
+            pv0['voltage'] = pv1_voltage / 10
+            pv0['current'] = pv1_current / 100
+
 
             # Current
-            pv1_current = inverter.read_raw_value(registers.InverterEquipmentRegister.PV1Current)
+            pv2_voltage = inverter.read_raw_value(registers.InverterEquipmentRegister.PV2Voltage)
             pv2_current = inverter.read_raw_value(registers.InverterEquipmentRegister.PV2Current)
-            current = dict()
-            current['0'] = pv1_current
-            current['1'] = pv2_current
+            pv1 = dict()
+            pv1['voltage'] = pv2_voltage / 10
+            pv1['current'] = pv2_current / 100
 
             pv_data = dict()
-            pv_data['voltage'] = voltage
-            pv_data['current'] = current
+            pv_data['0'] = pv0
+            pv_data['1'] = pv1
 
             input_power = inverter.read_raw_value(registers.InverterEquipmentRegister.InputPower)
-            internal_temperature = inverter.read_raw_value(registers.InverterEquipmentRegister.InternalTemperature)
+            internal_temperature = inverter.read_raw_value(registers.InverterEquipmentRegister.InternalTemperature) / 10
 
             inverter_data['inverter'] = sun2000
             inverter_data['inverter']['pv'] = pv_data
@@ -61,18 +66,18 @@ def update_data_thread(event: Event) -> None:
             if inverter_data['inverter']['hasmeter']:
                 meter = dict()
                 meter['type'] = inverter.read_raw_value(registers.MeterEquipmentRegister.MeterType)
-                meter['a_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseVoltage)
+                meter['a_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseVoltage) / 10
                 #meter['b_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.BPhaseVoltage)
                 #meter['c_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.CPhaseVoltage)
 
-                meter['a_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseCurrent)
+                meter['a_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseCurrent) /100
                 #meter['b_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.BPhaseCurrent)
                 #meter['c_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.CPhaseCurrent)
 
                 meter['active_power'] = inverter.read_raw_value(registers.MeterEquipmentRegister.ActivePower)
                 meter['reactive_power'] = inverter.read_raw_value(registers.MeterEquipmentRegister.ReactivePower)
-                meter['power_factor'] = inverter.read_raw_value(registers.MeterEquipmentRegister.PowerFactor)
-                meter['grid_frequency'] = inverter.read_raw_value(registers.MeterEquipmentRegister.GridFrequency)
+                meter['power_factor'] = inverter.read_raw_value(registers.MeterEquipmentRegister.PowerFactor) / 1000
+                meter['grid_frequency'] = inverter.read_raw_value(registers.MeterEquipmentRegister.GridFrequency) / 100
 
 
                 inverter_data['meter'] = meter
@@ -100,6 +105,7 @@ def signal_handler(signal, frame):
     sys.exit(0)
 
 
+
 if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -112,7 +118,12 @@ if __name__ == "__main__":
     inverter_port = os.environ.get('PORT', 6607)
     inverter_unit = os.environ.get('UNIT', 0)
 
+
+
     inverter = inverter.Sun2000(host=inverter_host, port=inverter_port, unit=inverter_unit)
+
+    # create an mqtt connection using paho
+
 
     # Create and start the update status thread
     event = Event()
