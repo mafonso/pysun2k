@@ -13,8 +13,6 @@ from waitress import serve
 app = Flask(__name__)
 # Global dictionary to store status information
 inverter_data = dict()
-
-
 def update_data_thread(event: Event) -> None:
     while not event.is_set():
         # Update the global dictionary with the current time
@@ -58,6 +56,28 @@ def update_data_thread(event: Event) -> None:
             inverter_data['inverter']['total_input_power'] = input_power
             inverter_data['inverter']['internal_temperature'] = internal_temperature
 
+            # Meter
+            inverter_data['inverter']['hasmeter'] = inverter.read_raw_value(registers.MeterEquipmentRegister.MeterStatus)
+            if inverter_data['inverter']['hasmeter']:
+                meter = dict()
+                meter['type'] = inverter.read_raw_value(registers.MeterEquipmentRegister.MeterType)
+                meter['a_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseVoltage)
+                #meter['b_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.BPhaseVoltage)
+                #meter['c_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.CPhaseVoltage)
+
+                meter['a_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseCurrent)
+                #meter['b_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.BPhaseCurrent)
+                #meter['c_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.CPhaseCurrent)
+
+                meter['active_power'] = inverter.read_raw_value(registers.MeterEquipmentRegister.ActivePower)
+                meter['reactive_power'] = inverter.read_raw_value(registers.MeterEquipmentRegister.ReactivePower)
+                meter['power_factor'] = inverter.read_raw_value(registers.MeterEquipmentRegister.PowerFactor)
+                meter['grid_frequency'] = inverter.read_raw_value(registers.MeterEquipmentRegister.GridFrequency)
+
+
+                inverter_data['meter'] = meter
+
+
         else:
             inverter_data["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
             inverter_data['status'] = "Not connected"
@@ -76,15 +96,13 @@ def status():
     return jsonify(inverter_data)
 
 
-def signal_handler():
-    inverter.disconnect()
-    Event.set()
+def signal_handler(signal, frame):
     sys.exit(0)
 
 
 if __name__ == "__main__":
 
-    signal.signal(signal_handler, signal.SIGINT)
+    signal.signal(signal.SIGINT, signal_handler)
 
     if os.environ.get('HOST') is None:
         print("Please set the HOST environment variable")
