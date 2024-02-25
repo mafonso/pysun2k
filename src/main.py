@@ -167,13 +167,13 @@ if __name__ == "__main__":
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    if os.environ.get('HOST') is None:
+    if os.environ.get('SUN2000_HOST') is None:
         print("Please set the HOST environment variable")
         sys.exit(1)
 
-    inverter_host = os.environ.get('HOST', '')
-    inverter_port = os.environ.get('PORT', 6607)
-    inverter_unit = os.environ.get('UNIT', 0)
+    inverter_host = os.environ.get('SUN2000_HOST', '')
+    inverter_port = os.environ.get('SUN2000_PORT', 6607)
+    inverter_unit = os.environ.get('SUN2000_UNIT', 0)
 
     bucket = os.environ.get('INFLUX_BUCKET', 'sun2000')
     org = os.environ.get('INFLUX_ORG', 'hangas')
