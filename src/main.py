@@ -41,7 +41,6 @@ def update_data_thread(event: Event) -> None:
             pv0['voltage'] = pv1_voltage / 10
             pv0['current'] = pv1_current / 100
 
-
             # Current
             pv2_voltage = inverter.read_raw_value(registers.InverterEquipmentRegister.PV2Voltage)
             pv2_current = inverter.read_raw_value(registers.InverterEquipmentRegister.PV2Current)
@@ -56,29 +55,41 @@ def update_data_thread(event: Event) -> None:
             input_power = inverter.read_raw_value(registers.InverterEquipmentRegister.InputPower)
             internal_temperature = inverter.read_raw_value(registers.InverterEquipmentRegister.InternalTemperature) / 10
 
-            inverter_data['inverter'] = sun2000
-            inverter_data['inverter']['pv'] = pv_data
-            inverter_data['inverter']['total_input_power'] = input_power
-            inverter_data['inverter']['internal_temperature'] = internal_temperature
+            sun2000['pv'] = pv_data
+            sun2000['total_input_power'] = input_power
+            sun2000['internal_temperature'] = internal_temperature
+
+            inverter_dict = dict()
+            inverter_dict['0'] = sun2000
+
+
+            inverter_data['inverters'] = inverter_dict
 
             # Meter
-            inverter_data['inverter']['hasmeter'] = inverter.read_raw_value(registers.MeterEquipmentRegister.MeterStatus)
-            if inverter_data['inverter']['hasmeter']:
+            hasMeter = inverter.read_raw_value(registers.MeterEquipmentRegister.MeterStatus)
+            if hasMeter:
                 meter = dict()
                 meter['type'] = inverter.read_raw_value(registers.MeterEquipmentRegister.MeterType)
-                meter['a_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseVoltage) / 10
-                #meter['b_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.BPhaseVoltage)
-                #meter['c_phase_voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.CPhaseVoltage)
-
-                meter['a_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseCurrent) /100
-                #meter['b_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.BPhaseCurrent)
-                #meter['c_phase_current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.CPhaseCurrent)
-
                 meter['active_power'] = inverter.read_raw_value(registers.MeterEquipmentRegister.ActivePower)
                 meter['reactive_power'] = inverter.read_raw_value(registers.MeterEquipmentRegister.ReactivePower)
                 meter['power_factor'] = inverter.read_raw_value(registers.MeterEquipmentRegister.PowerFactor) / 1000
                 meter['grid_frequency'] = inverter.read_raw_value(registers.MeterEquipmentRegister.GridFrequency) / 100
 
+                phase_a = dict()
+                phase_a['voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseVoltage) / 10
+                phase_a['current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.APhaseCurrent) /100
+                meter['phase_a'] = phase_a
+
+                if meter['type'] == 1:
+                    phase_b = dict()
+                    phase_b['voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.BPhaseVoltage) / 10
+                    phase_b['current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.BPhaseCurrent) /100
+                    meter['phase_b'] = phase_b
+
+                    phase_c = dict()
+                    phase_c['voltage'] = inverter.read_raw_value(registers.MeterEquipmentRegister.CPhaseVoltage) / 10
+                    phase_c['current'] = inverter.read_raw_value(registers.MeterEquipmentRegister.CPhaseCurrent) /100
+                    meter['phase_c'] = phase_c
 
                 inverter_data['meter'] = meter
 
