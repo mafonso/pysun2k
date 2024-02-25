@@ -26,8 +26,15 @@ jobs:
       - name: Build Docker image
         run: docker build -t mafonso/pysun2k:${{ github.sha }} .
 
+      - name: Build tag Latest
+        run: docker image tag mafonso/pysun2k:${{ github.sha }} mafonso/pysun2k:latest
+
       - name: Log in to Docker Hub
         run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_TOKEN }}
 
       - name: Push Docker image
         run: docker push mafonso/pysun2k:${{ github.sha }}
+
+      - name: Push Docker image (latest)
+        run: docker push mafonso/pysun2k:latest
+
