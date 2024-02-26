@@ -23,12 +23,6 @@ def update_data_thread(thread_event: Event) -> None:
         # Update the global dictionary with the current time
         inverter_data["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
-        try:
-            inverter.connect()
-        except Exception as e:
-            print(f"Error connecting to inverter: {e}")
-            sys.exit(1)
-
         if inverter.isConnected():
 
             sun2000 = dict()
@@ -91,8 +85,6 @@ def update_data_thread(thread_event: Event) -> None:
                     meter['phase_c'] = phase_c
 
                 inverter_data['meter'] = meter
-
-                inverter.disconnect()
 
                 # Todo: Move to separate function
                 write_api.write(bucket, org, [
@@ -175,8 +167,10 @@ if __name__ == "__main__":
     write_api = client.write_api(write_options=SYNCHRONOUS)
 
     inverter = inverter.Sun2000(host=inverter_host, port=inverter_port, unit=inverter_unit)
+    inverter.connect()
 
-    # Create and start the update status thread
+
+# Create and start the update status thread
     event = Event()
     update_thread = threading.Thread(target=update_data_thread, args=(event,))
     update_thread.start()
