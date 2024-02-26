@@ -22,7 +22,12 @@ def update_data_thread(thread_event: Event) -> None:
     while not thread_event.is_set():
         # Update the global dictionary with the current time
         inverter_data["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-        inverter.connect()
+
+        try:
+            inverter.connect()
+        except Exception as e:
+            print(f"Error connecting to inverter: {e}")
+            sys.exit(1)
 
         if inverter.isConnected():
 
