@@ -126,12 +126,15 @@ def push_to_influxdb():
 
 def update_data_thread(thread_event: Event) -> None:
     while not thread_event.is_set():
+        if inverter.isConnected() is False:
+            inverter.connect()
         try:
             if inverter.isConnected():
                 print("Updating inverter data", time.strftime("%Y-%m-%d %H:%M:%S"))
                 read_inverter_values()
                 push_to_influxdb()
         except Exception as e:
+                inverter.disconnect()
                 print("Exception in thread:", e)
                 traceback.print_exc()
         time.sleep(5)
